@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WHMPRO | By Vinh</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%); 
+            user-select: none;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
+        }
+        .input-enterprise {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .input-enterprise:focus {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.2);
+            border-color: #4f46e5;
+        }
+        .list-enter-active, .list-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .list-enter-from, .list-leave-to { opacity: 0; transform: scale(0.9) translateY(20px); }
+        
+        .btn-gradient {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            transition: all 0.2s ease;
+        }
+        .btn-gradient:active { transform: scale(0.96); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="p-4">
+
+<div id="app" class="max-w-lg mx-auto min-h-screen flex flex-col">
+    <div class="bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 rounded-[2rem] p-7 text-white shadow-2xl mb-8 relative overflow-hidden">
+        <div class="relative z-10 flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-extrabold tracking-tight leading-tight">WHMFG PRO<br><span class="text-indigo-200 font-semibold text-lg">QUÉT MÃ THÊM VỊ TRÍ MỚI</span></h1>
+                <div class="flex items-center gap-2 mt-2">
+                    <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                    <p class="text-[10px] opacity-80 uppercase font-bold tracking-widest">{{ currentTime }}</p>
+                </div>
+            </div>
+            <div class="text-right">
+                <div class="bg-white/20 backdrop-blur-md rounded-2xl p-3 border border-white/30">
+                    <p class="text-4xl font-black leading-none">{{ scannedData.length }}</p>
+                    <p class="text-[9px] uppercase font-bold opacity-90 mt-1">Tags Chờ Nhập</p>
+                </div>
+            </div>
+        </div>
+        <div class="absolute -right-12 -bottom-12 w-48 h-48 bg-white/10 rounded-full blur-3xl"></div>
+        <div class="absolute -left-12 -top-12 w-32 h-32 bg-indigo-400/20 rounded-full blur-2xl"></div>
+    </div>
+
+    <div class="glass-panel rounded-[2.5rem] p-8 space-y-8 mb-8">
+        <div class="space-y-3">
+            <div class="flex justify-between items-end">
+                <label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">📍 Vị trí (Bin)</label>
+                <span v-if="currentLocation !== 'Chưa chọn vị trí'" class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">Đang khóa</span>
+            </div>
+            <input type="text" ref="locInput" v-model="currentLocation"
+                   @focus="activeInput = 'loc'"
+                   class="w-full p-5 bg-white border-2 border-slate-100 rounded-2xl text-center text-2xl font-black text-slate-800 outline-none transition-all input-enterprise placeholder:text-slate-300" 
+                   placeholder="Quét Vị Trí..."
+                   @keyup.enter="onLocationEnter">
+        </div>
+
+        <div class="space-y-3">
+            <label class="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">🏷️ Quét Tag ID</label>
+            <div class="relative">
+                <input type="text" ref="tagInput" v-model="currentTag"
+                       @focus="activeInput = 'tag'"
+                       class="w-full p-5 bg-indigo-50 border-2 border-indigo-100 rounded-2xl text-center text-2xl font-black text-indigo-700 outline-none transition-all input-enterprise placeholder:text-indigo-300" 
+                       placeholder="Quét Tag ID tại đây..."
+                       @keyup.enter="onTagEnter">
+                <div v-if="activeInput === 'tag'" class="absolute -top-1 -right-1 w-3 h-3 bg-indigo-600 rounded-full animate-ping"></div>
+            </div>
+        </div>
+
+        <div class="pt-4">
+            <button @click="syncCloud" :disabled="isSyncing || scannedData.length === 0" 
+                    class="btn-push w-full btn-gradient text-white py-5 rounded-2xl font-extrabold text-xl shadow-xl hover:shadow-indigo-200 transition-all disabled:opacity-50 flex items-center justify-center gap-3">
+                <span v-if="!isSyncing" class="flex items-center gap-2">🚀 NHẬP KHO</span>
+                <span v-else class="flex items-center gap-2">
+                    <svg class="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    ĐANG XỬ LÝ...
+                </span>
+            </button>
+            <div class="text-center mt-4">
+                <button @click="clearAll" class="text-slate-400 text-xs font-semibold hover:text-rose-500 transition-colors underline underline-offset-4">
+                    Xóa toàn bộ hàng chờ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col">
+        <div class="flex justify-between items-center mb-4 px-2">
+            <h3 class="text-xs font-extrabold text-slate-500 uppercase tracking-widest">Queue Mapping</h3>
+            <span class="bg-white text-indigo-600 text-[10px] px-3 py-1 rounded-full font-bold shadow-sm border border-indigo-100">
+                {{ scannedData.length }} items
+            </span>
+        </div>
+        
+        <div class="space-y-3 pb-10">
+            <transition-group name="list">
+                <div v-for="(item, index) in reversedData" :key="item.id" 
+                     class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group hover:border-indigo-400 transition-all hover:shadow-md">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-indigo-600 text-white text-[10px] font-black px-3 py-1 rounded-lg shadow-sm">{{ item.loc }}</div>
+                        <div>
+                            <p class="text-sm font-extrabold text-slate-800 tracking-tight">{{ item.tag }}</p>
+                            <p class="text-[9px] text-slate-400 font-medium">{{ item.time }}</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button @click="editItem(item.id)" class="text-slate-400 hover:text-indigo-600 p-2 bg-slate-50 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.232z" /></svg>
+                        </button>
+                        <button @click="deleteItem(item.id)" class="text-slate-400 hover:text-rose-500 p-2 bg-slate-50 rounded-lg transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </div>
+                </div>
+            </transition-group>
+            <div v-if="scannedData.length === 0" class="text-center py-16 text-slate-400 text-sm italic bg-white rounded-[2rem] border-2 border-dashed border-slate-200">
+                Sẵn sàng quét dữ liệu...
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const { createApp, ref, onMounted, computed, nextTick } = Vue;
+
+    createApp({
+        setup() {
+            const STORAGE_KEY = 'pda_enterprise_mapping';
+            const currentLocation = ref(localStorage.getItem('pda_current_loc') || 'Chưa chọn vị trí');
+            const currentTag = ref('');
+            const scannedData = ref(JSON.parse(localStorage.getItem('pda_mapping_data')) || []);
+            const isSyncing = ref(false);
+            const currentTime = ref('');
+            const locInput = ref(null);
+            const tagInput = ref(null);
+            const activeInput = ref('loc'); // 'loc' or 'tag'
+
+            const CLOUD_API = 'https://script.google.com/macros/s/AKfycbyMECd-im1zwQJ8TQEgDbJF3O6go4uQLSl9UoIoTxnQjgY9WbufHwt8JWkyhVOPBKgn/exec';
+
+            const reversedData = computed(() => [...scannedData.value].reverse());
+
+            const updateTime = () => {
+                currentTime.value = new Date().toLocaleTimeString('vi-VN');
+            };
+
+            const onLocationEnter = () => {
+                const val = currentLocation.value.trim();
+                if (!val) return;
+                
+                localStorage.setItem('pda_current_loc', val);
+                activeInput.value = 'tag';
+                nextTick(() => tagInput.value.focus());
+            };
+
+            const onTagEnter = () => {
+                const val = currentTag.value.trim();
+                if (!val) return;
+
+                if (currentLocation.value === 'Chưa chọn vị trí') {
+                    alert('⚠️ Vui lòng quét VỊ TRÍ trước khi quét Tag ID!');
+                    activeInput.value = 'loc';
+                    nextTick(() => locInput.value.focus());
+                    return;
+                }
+
+                scannedData.value.push({ 
+                    id: Date.now(), 
+                    tag: val, 
+                    loc: currentLocation.value, 
+                    time: new Date().toLocaleString('vi-VN') 
+                });
+                
+                localStorage.setItem('pda_mapping_data', JSON.stringify(scannedData.value));
+                currentTag.value = ''; 
+                
+                nextTick(() => tagInput.value.focus());
+            };
+
+            const syncCloud = async () => {
+                isSyncing.value = true;
+                try {
+                    const payload = { 
+                        action: "receive", 
+                        data: scannedData.value.map(i => ({
+                            tagID: i.tag,
+                            bin: i.loc,
+                            thoiGian: i.time 
+                        }))
+                    };
+
+                    const response = await fetch(CLOUD_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, 
+                        body: JSON.stringify(payload)
+                    });
+
+                    const result = await response.json();
+                    if (result.result && result.result.includes("thành công")) {
+                        alert("🚀 " + result.result);
+                        scannedData.value = [];
+                        localStorage.setItem('pda_mapping_data', JSON.stringify([]));
+                    } else {
+                        alert("⚠️ Server báo lỗi: " + (result.result || "Không xác định"));
+                    }
+                } catch (e) {
+                    alert("❌ Lỗi kết nối Cloud: " + e.message);
+                } finally {
+                    isSyncing.value = false;
+                }
+            };
+
+            const deleteItem = (id) => {
+                scannedData.value = scannedData.value.filter(i => i.id !== id);
+                localStorage.setItem('pda_mapping_data', JSON.stringify(scannedData.value));
+            };
+
+            const editItem = (id) => {
+                const item = scannedData.value.find(i => i.id === id);
+                if (!item) return;
+                const newVal = prompt("Sửa lại Tag ID:", item.tag);
+                if (newVal !== null) {
+                    item.tag = newVal.trim();
+                    localStorage.setItem('pda_mapping_data', JSON.stringify(scannedData.value));
+                }
+            };
+
+            const clearAll = () => {
+                if(confirm('Xóa sạch toàn bộ hàng chờ?')) {
+                    scannedData.value = [];
+                    currentLocation.value = 'Chưa chọn vị trí';
+                    localStorage.setItem('pda_mapping_data', JSON.stringify([]));
+                    localStorage.setItem('pda_current_loc', 'Chưa chọn vị trí');
+                }
+            };
+
+            onMounted(() => {
+                updateTime();
+                setInterval(updateTime, 1000);
+                setTimeout(() => {
+                    activeInput.value = 'loc';
+                    locInput.value.focus();
+                }, 500);
+                // Đã loại bỏ document.addEventListener('click') để anh có thể tự do click sửa vị trí
+            });
+
+            return { 
+                currentMode: 'location', currentLocation, currentTag, scannedData, isSyncing, currentTime, 
+                locInput, tagInput, activeInput, reversedData, onLocationEnter, onTagEnter, 
+                syncCloud, deleteItem, editItem, clearAll 
+            };
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
